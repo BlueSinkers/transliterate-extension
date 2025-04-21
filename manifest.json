@@ -1,0 +1,24 @@
+{
+    "manifest_version": 3,
+    "name": "Instant Spanish Translator",
+    "version": "1.0",
+    "description": "Translates all visible text to Spanish.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "https://libretranslate.de/"
+        ],
+
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+      }
+    ],
+    "action": {
+      "default_title": "Spanish Translator"
+    }
+  }
+  
