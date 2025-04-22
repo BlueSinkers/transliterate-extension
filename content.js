@@ -1,54 +1,63 @@
-console.log("🌍 Extension loaded with real translation!");
+console.log("🔁 Reverse Text Extension Loaded");
 
-async function translateText(text) {
-  if (!text.trim()) return text;
-
-  try {
-    const response = await fetch("https://libretranslate.de/translate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        q: text,
-        source: "en",
-        target: "es",
-        format: "text"
-      })
-    });
-
-    const data = await response.json();
-    return data.translatedText || text;
-  } catch (error) {
-    console.error("Translation error:", error);
-    return text;
-  }
+// Function to reverse the text content
+function reverseText(text) {
+  return text.split('').reverse().join('');
 }
 
-function walkAndTranslate(node) {
+// Function to reverse all text in the DOM
+function walkAndReverse(node) {
   if (node.nodeType === Node.TEXT_NODE) {
-    const originalText = node.textContent.trim();
-    translateText(originalText).then(translated => {
-      if (translated !== originalText) {
-        node.textContent = translated;
-      }
-    });
+    const originalText = node.textContent;
+    if (!node.parentElement?.dataset?.original) {
+      node.parentElement.dataset.original = originalText;
+      node.textContent = reverseText(originalText);
+    }
   } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes) {
-    node.childNodes.forEach(walkAndTranslate);
+    node.childNodes.forEach(walkAndReverse);
   }
 }
 
-walkAndTranslate(document.body);
+// Function to restore all text to its original state
+function walkAndRestore(node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const parent = node.parentElement;
+    if (parent?.dataset?.original) {
+      node.textContent = parent.dataset.original;
+      delete parent.dataset.original;
+    }
+  } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes) {
+    node.childNodes.forEach(walkAndRestore);
+  }
+}
 
-const observer = new MutationObserver((mutations) => {
-  mutations.forEach((mutation) => {
-    mutation.addedNodes.forEach((node) => {
-      walkAndTranslate(node);
+// Check the stored state and apply the reverse or restore based on that
+chrome.storage.sync.get("reverseEnabled", (data) => {
+  if (data.reverseEnabled) {
+    walkAndReverse(document.body);
+
+    // Observe changes in the DOM to apply reversal on dynamically added content
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          walkAndReverse(node);
+        });
+      });
     });
-  });
-});
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Save the observer for later disconnection if needed
+    window.__reverseObserver = observer;
+  } else {
+    walkAndRestore(document.body);
+
+    // Disconnect the observer when it's not needed
+    if (window.__reverseObserver) {
+      window.__reverseObserver.disconnect();
+    }
+  }
 });
